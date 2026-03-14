@@ -19,6 +19,7 @@ module.exports = [
         process: "readonly",
         __dirname: "readonly",
         console: "readonly",
+        fetch: "readonly",
         describe: "readonly",
         it: "readonly",
       },
