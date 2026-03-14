@@ -1,0 +1,95 @@
+name: Deploy API
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "api/**"
+
+env:
+  AWS_REGION: us-east-1
+  ECS_CLUSTER: nodeapp-cluster
+  ECR_REPO: nodeapp-api
+  ECS_SERVICE: nodeapp-api
+  ECS_TASK_FAMILY: nodeapp-api
+  CONTAINER_NAME: api
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.set-tag.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: set-tag
+        run: echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ steps.set-tag.outputs.tag }}
+        run: |
+          docker build --platform linux/amd64 \
+            -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPO:latest \
+            ./api
+          docker push $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPO:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update ECS task definition and deploy
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+        run: |
+          TASK_DEF=$(aws ecs describe-task-definition --task-definition $ECS_TASK_FAMILY --query 'taskDefinition' --output json)
+
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" --arg CONTAINER "$CONTAINER_NAME" \
+            '.containerDefinitions = [.containerDefinitions[] | if .name == $CONTAINER then .image = $IMAGE else . end]')
+
+          echo $NEW_TASK_DEF | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            > new-task-def.json
+
+          aws ecs register-task-definition --cli-input-json file://new-task-def.json
+
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --task-definition $ECS_TASK_FAMILY \
+            --force-new-deployment
+
+      - name: Wait for deployment stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE
