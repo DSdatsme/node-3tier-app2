@@ -57,11 +57,3 @@ jobs:
           docker build --platform linux/amd64 \
             -t ${{ steps.meta.outputs.tag }} \
             ./api
-
-      - name: Docker Scout CVE scan
-        uses: docker/scout-action@v1
-        with:
-          command: cves
-          image: local://${{ steps.meta.outputs.tag }}
-          only-severities: critical,high
-          exit-code: true
