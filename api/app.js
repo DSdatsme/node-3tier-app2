@@ -27,7 +27,7 @@ app.get('/api/status', function(req, res) {
       release()
     if (err) {
       console.log(err);
-      return console.error('Error executing query', err.stack)
+      return console.error('Error executing query:', err.stack)
     }
     res.status(200).send(result.rows);
   });
