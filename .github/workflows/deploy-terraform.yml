@@ -28,7 +28,7 @@ jobs:
         run: cd $TF_DIR && tofu init
 
       - name: Plan
-        run: cd $TF_DIR && tofu plan -no-color
+        run: cd $TF_DIR && tofu plan -no-color -detailed-exitcode || if [ $? -eq 2 ]; then echo "Changes detected"; else exit 1; fi
         env:
           TF_VAR_cloudfront_origin_secret: ${{ secrets.CLOUDFRONT_ORIGIN_SECRET }}
 
