@@ -30,6 +30,9 @@ resource "aws_db_instance" "app_db" {
   backup_window           = var.db_backup_window
   maintenance_window      = var.db_maintenance_window
 
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
+
   skip_final_snapshot       = false
   final_snapshot_identifier = "${var.project_name}-db-final-snapshot"
   deletion_protection       = true

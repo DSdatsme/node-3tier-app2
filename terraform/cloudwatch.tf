@@ -169,6 +169,22 @@ resource "aws_cloudwatch_dashboard" "app_dashboard" {
         width  = 12
         height = 6
         properties = {
+          title = "ECS Running Task Count"
+          metrics = [
+            ["ECS/ContainerInsights", "RunningTaskCount", "ServiceName", aws_ecs_service.web.name, "ClusterName", aws_ecs_cluster.app_cluster.name, { stat = "Average" }],
+            ["ECS/ContainerInsights", "RunningTaskCount", "ServiceName", aws_ecs_service.api.name, "ClusterName", aws_ecs_cluster.app_cluster.name, { stat = "Average" }]
+          ]
+          period = 60
+          region = var.aws_region
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
           title = "ALB Request Count & Latency"
           metrics = [
             ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", aws_lb.app_lb.arn_suffix, { stat = "Sum" }],
@@ -182,8 +198,8 @@ resource "aws_cloudwatch_dashboard" "app_dashboard" {
       },
       {
         type   = "metric"
-        x      = 12
-        y      = 6
+        x      = 0
+        y      = 12
         width  = 12
         height = 6
         properties = {
@@ -201,7 +217,7 @@ resource "aws_cloudwatch_dashboard" "app_dashboard" {
       {
         type   = "metric"
         x      = 0
-        y      = 12
+        y      = 18
         width  = 12
         height = 6
         properties = {
@@ -211,6 +227,21 @@ resource "aws_cloudwatch_dashboard" "app_dashboard" {
             ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", aws_db_instance.app_db.identifier, { stat = "Average" }],
             ["AWS/RDS", "ReadLatency", "DBInstanceIdentifier", aws_db_instance.app_db.identifier, { stat = "Average" }],
             ["AWS/RDS", "WriteLatency", "DBInstanceIdentifier", aws_db_instance.app_db.identifier, { stat = "Average" }]
+          ]
+          period = 300
+          region = var.aws_region
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 18
+        width  = 12
+        height = 6
+        properties = {
+          title = "RDS Free Storage Space"
+          metrics = [
+            ["AWS/RDS", "FreeStorageSpace", "DBInstanceIdentifier", aws_db_instance.app_db.identifier, { stat = "Average" }]
           ]
           period = 300
           region = var.aws_region
