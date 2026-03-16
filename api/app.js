@@ -38,7 +38,7 @@ app.get('/api/status', function(req, res) {
 });
 
 app.get('/health', function(req, res) {
-  res.status(200).send('ok');
+  res.status(200).send('okk');
 });
 
 // catch 404 and forward to error handler
