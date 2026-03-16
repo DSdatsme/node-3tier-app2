@@ -11,6 +11,8 @@ jobs:
   plan:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.plan.outputs.has_changes || 'false' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -28,12 +30,28 @@ jobs:
         run: cd $TF_DIR && tofu init
 
       - name: Plan
-        run: cd $TF_DIR && tofu plan -no-color -detailed-exitcode || if [ $? -eq 2 ]; then echo "Changes detected"; else exit 1; fi
+        id: plan
+        run: |
+          cd $TF_DIR
+          set +e
+          tofu plan -detailed-exitcode
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "No changes detected, skipping apply"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          elif [ $EXIT_CODE -eq 2 ]; then
+            echo "Changes detected, proceeding with apply"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            exit 1
+          fi
         env:
           TF_VAR_cloudfront_origin_secret: ${{ secrets.CLOUDFRONT_ORIGIN_SECRET }}
 
   apply:
     needs: plan
+    if: needs.plan.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -53,6 +71,6 @@ jobs:
         run: cd $TF_DIR && tofu init
 
       - name: Apply
-        run: cd $TF_DIR && tofu apply -auto-approve -no-color
+        run: cd $TF_DIR && tofu apply -auto-approve
         env:
           TF_VAR_cloudfront_origin_secret: ${{ secrets.CLOUDFRONT_ORIGIN_SECRET }}
