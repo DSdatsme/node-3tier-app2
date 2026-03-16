@@ -178,9 +178,28 @@ cd operations
 
 ## Tear Down Infrastructure
 
-```bash
-cd terraform
-tofu destroy
-```
+Before running `tofu destroy`, the following manual steps are required:
 
-Destroy takes around 10-15 minutes.
+1. **Disable RDS deletion protection**
+   ```bash
+   aws rds modify-db-instance --db-instance-identifier nodeapp-db --no-deletion-protection --region us-east-1
+   ```
+
+2. **Delete ECR images** (repos have `force_delete = false`)
+   ```bash
+   aws ecr delete-repository --repository-name nodeapp-web --force --region us-east-1
+   aws ecr delete-repository --repository-name nodeapp-api --force --region us-east-1
+   ```
+
+3. **Force delete Secrets Manager secret** (otherwise scheduled for 7-30 day deletion window)
+   ```bash
+   aws secretsmanager delete-secret --secret-id nodeapp/db-credentials --force-delete-without-recovery --region us-east-1
+   ```
+
+4. **Run destroy**
+   ```bash
+   cd terraform
+   tofu destroy
+   ```
+
+> **Note:** RDS will create a final snapshot (`nodeapp-db-final-snapshot`) before deletion. Delete it manually if not needed to avoid storage costs.
