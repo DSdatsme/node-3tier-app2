@@ -12,7 +12,7 @@ router.get('/', async function(req, res, next) {
         }
         var body = await response.json();
         res.render('index', {
-            title: '3tier App',
+            title: '3tier App Test',
             request_uuid: body[0].request_uuid,
             time: body[0].time
         });
